@@ -1,25 +1,13 @@
 import base64
 import requests
 
-# Constants (Replace these with your repo details)
 GITHUB_API_URL = "https://api.github.com"
-OWNER = "puneeetsharma"  # Replace with your GitHub username or organization name
-REPO = "GenWear"  # Replace with your repo name
-BRANCH = "main"  # Branch where the file will be stored
+OWNER = "puneeetsharma"
+REPO = "GenWear"
+BRANCH = "main"
 
 
 def store_image_to_github(file_path: str, image_name: str, commit_message: str = "Add image") -> dict:
-    """
-    Stores an image file to a GitHub repository.
-
-    Args:
-        file_path (str): The local path of the image to be uploaded.
-        image_name (str): The name to store the image as in the repo (e.g., 'images/my_image.png').
-        commit_message (str): The commit message for this change.
-
-    Returns:
-        dict: Response from the GitHub API.
-    """
     with open(file_path, "rb") as image_file:
         image_data = image_file.read()
 
@@ -50,15 +38,6 @@ def store_image_to_github(file_path: str, image_name: str, commit_message: str =
 
 
 def fetch_image_from_github(image_name: str) -> bytes:
-    """
-    Fetches an image from a GitHub repository.
-
-    Args:
-        image_name (str): The path to the image in the repo (e.g., 'images/my_image.png').
-
-    Returns:
-        bytes: The binary content of the image.
-    """
     url = f"{GITHUB_API_URL}/repos/{OWNER}/{REPO}/contents/{image_name}"
 
     headers = {
@@ -78,10 +57,6 @@ def fetch_image_from_github(image_name: str) -> bytes:
 
 # Example usage
 if __name__ == "__main__":
-    # Store an image to the repo
-    # store_response = store_image_to_github("baseModel.png", "images/model.png")
-
-    # Fetch the image from the repo
     image_content = fetch_image_from_github("images/model.png")
 
     if image_content:
