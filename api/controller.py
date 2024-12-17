@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import cloudinary.uploader
 import json
+from impl import apiLogic
 
 app = Flask(__name__)
 CORS(app)
@@ -231,6 +232,69 @@ def ai_try_on():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/try-on-with-image', methods=['POST'])
+def ai_try_on():
+    global dress_input_url, upper_input_url, lower_input_url
+    user_data = request.form  # Changed to form to handle file uploads
+
+    # Validate required fields
+    required_fields = ["model_input", "batch_size"]
+    for field in required_fields:
+        if field not in user_data:
+            return jsonify({"error": f"'{field}' is required"}), 400
+
+    # Upload files to Cloudinary
+    try:
+        model_input_file = request.files.get('model_input')
+        upper_input_file = request.files.get('upper_input')
+        lower_input_file = request.files.get('lower_input')
+
+        if not model_input_file:
+            return jsonify({"error": "'model_input' file is required"}), 400
+
+        model_input_url = cloudinary.uploader.upload(model_input_file)['url']
+
+        if 'dress_input' in request.files:
+            dress_input_file = request.files.get('dress_input')
+            dress_input_url = cloudinary.uploader.upload(dress_input_file)['url']
+        else:
+            if not upper_input_file or not lower_input_file:
+                return jsonify({
+                                   "error": "'upper_input' and 'lower_input' files are required when 'dress_input' is not provided"}), 400
+            upper_input_url = cloudinary.uploader.upload(upper_input_file)['url']
+            lower_input_url = cloudinary.uploader.upload(lower_input_file)['url']
+    except Exception as e:
+        return jsonify({"error": f"File upload failed: {str(e)}"}), 500
+
+    # Prepare payload for the external API
+    payload = {
+        "model_input": model_input_url,
+        "batch_size": user_data.get("batch_size"),
+    }
+
+    if "dress_input" in user_data:
+        payload["upper_input"] = dress_input_url
+    else:
+        if "upper_input" not in user_data or "lower_input" not in user_data:
+            return jsonify(
+                {"error": "'upper_input' and 'lower_input' are required when 'dress_input' is not provided"}), 400
+        payload["upper_input"] = upper_input_url
+        payload["lower_input"] = lower_input_url
+
+    headers = {
+        'x-api-key': API_KEY,
+        'Content-Type': 'application/json'
+    }
+
+    # Call the external API
+    try:
+        response = requests.post(API_URL_CREATE_TASK, headers=headers, json=payload)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        return jsonify(response.json())  # Forward the response back to the client
+    except requests.exceptions.RequestException as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route('/get-tasks/<task_id>', methods=['GET'])
 def get_tasks(task_id):
     # Ensure that task_id is provided
@@ -254,6 +318,34 @@ def get_tasks(task_id):
     except requests.exceptions.RequestException as e:
         # Handle errors and return a meaningful message
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/generate-video', methods=['POST'])
+def generate_video():
+    user_data = request.json
+
+    # Validate required fields
+    required_fields = ["prompt", "image"]
+    for field in required_fields:
+        if field not in user_data:
+            return jsonify({"error": f"'{field}' is required"}), 400
+
+    apiLogic.generate_video_prompt(None, user_data)
+
+
+@app.route('/generate-video-with-image', methods=['POST'])
+def generate_video_image():
+    user_data = request.json
+
+    # Validate required fields
+    required_fields = ["prompt", "image"]
+    for field in required_fields:
+        if field not in user_data:
+            return jsonify({"error": f"'{field}' is required"}), 400
+
+    image_file = request.files.get('image')
+
+    apiLogic.generate_video_prompt(image_file, user_data)
 
 
 if __name__ == "__main__":
