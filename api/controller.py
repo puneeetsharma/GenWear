@@ -260,7 +260,7 @@ def ai_try_on():
         else:
             if not upper_input_file or not lower_input_file:
                 return jsonify({
-                                   "error": "'upper_input' and 'lower_input' files are required when 'dress_input' is not provided"}), 400
+                    "error": "'upper_input' and 'lower_input' files are required when 'dress_input' is not provided"}), 400
             upper_input_url = cloudinary.uploader.upload(upper_input_file)['url']
             lower_input_url = cloudinary.uploader.upload(lower_input_file)['url']
     except Exception as e:
@@ -293,6 +293,20 @@ def ai_try_on():
         return jsonify(response.json())  # Forward the response back to the client
     except requests.exceptions.RequestException as e:
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/virtual_try-on-with-image', methods=['POST'])
+def ai_try_on_image():
+    user_data = request.form  # Changed to form to handle file uploads
+
+    # Validate required fields
+    required_fields = ["model_input", "batch_size"]
+    for field in required_fields:
+        if field not in user_data:
+            return jsonify({"error": f"'{field}' is required"}), 400
+
+    return apiLogic.generate_image_with_image_and_return_image(request, user_data)
+
 
 
 @app.route('/get-tasks/<task_id>', methods=['GET'])
@@ -346,6 +360,46 @@ def generate_video_image():
     image_file = request.files.get('image')
 
     apiLogic.generate_video_prompt(image_file, user_data)
+
+
+
+
+
+
+HEYGEN_API_KEY = '<your-api-key>'
+HEYGEN_API_URL = 'https://api.heygen.com/v2/video/generate'
+
+
+@app.route('/heygen-generate-video', methods=['POST'])
+def heygen_generate_video():
+    """Endpoint to trigger HeyGen API for video generation"""
+    try:
+        # Extract input data from the incoming request
+        input_data = request.get_json()
+        if not input_data:
+            return jsonify({"error": "Invalid request, JSON payload required"}), 400
+
+        # Set up headers for the HeyGen API request
+        headers = {
+            'X-Api-Key': HEYGEN_API_KEY,
+            'Content-Type': 'application/json'
+        }
+
+        # Make the POST request to the HeyGen API
+        response = requests.post(HEYGEN_API_URL, headers=headers, json=input_data)
+
+        # Return the response from the HeyGen API
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            return jsonify({
+                "error": "Failed to generate video",
+                "status_code": response.status_code,
+                "response": response.json()
+            }), response.status_code
+
+    except Exception as e:
+        return jsonify({"error": "An error occurred", "message": str(e)}), 500
 
 
 if __name__ == "__main__":
